@@ -15,6 +15,20 @@ export const FORMATS = {
   wide: { label: "Экран / слайд 16:9 (1920×1080)", w: 1920, h: 1080 },
   mail: { label: "Шапка письма / рассылки (1200×400)", w: 1200, h: 400 },
   a4: { label: "Объявление A4 для печати (2480×3508)", w: 2480, h: 3508 },
+  a4land: { label: "Грамота / благодарность A4 альбомная (3508×2480)", w: 3508, h: 2480 },
+  vkcover: { label: "Обложка сообщества ВКонтакте (1920×768)", w: 1920, h: 768 },
+  tg: { label: "Пост Telegram / ВКонтакте 16:9 (1280×720)", w: 1280, h: 720 },
+  badge: { label: "Бейдж сотрудника 90×55 мм (1063×650)", w: 1063, h: 650 },
+};
+
+// Безопасные зоны: доли от размера, которые на площадке закрывает интерфейс
+// или обрезает телефон. Текст и логотип держатся внутри.
+export const SAFE = {
+  story: { t: 0.13, b: 0.17, s: 0.05, note: "сверху и снизу в сторис интерфейс закрывает часть кадра" },
+  vkcover: { t: 0.12, b: 0.12, s: 0.2, note: "на телефоне обложка обрезается по краям" },
+  badge: { t: 0.06, b: 0.06, s: 0.06, note: "отступ под обрезку при печати" },
+  a4: { t: 0.03, b: 0.03, s: 0.03, note: "поля принтера" },
+  a4land: { t: 0.03, b: 0.03, s: 0.03, note: "поля принтера" },
 };
 
 export const TEMPLATES = {
@@ -50,6 +64,18 @@ export const TEMPLATES = {
     label: "Благодарность",
     texts: { kicker: "Спасибо!", title: "[Имя / команда]", subtitle: "[За что благодарим]", body: "", cta: "", footer: "" },
   },
+  certificate: {
+    label: "Грамота / благодарственное письмо",
+    texts: { kicker: "Благодарность", title: "[Имя Фамилия]", subtitle: "за [добросовестный труд, вклад в проект…]", body: "[Пара тёплых слов о заслугах сотрудника]", cta: "", footer: "[Должность руководителя]  ________  [И. О. Фамилия]     [дата]" },
+    format: "a4land",
+    style: "certificate",
+  },
+  badge: {
+    label: "Бейдж сотрудника",
+    texts: { kicker: "", title: "[Имя Фамилия]", subtitle: "[Должность]", body: "", cta: "", footer: "[Подразделение]" },
+    format: "badge",
+    style: "minimal",
+  },
 };
 
 const STYLES = {
@@ -58,6 +84,10 @@ const STYLES = {
   photo: "Фото на весь макет с фирменным затемнением",
   split: "Фото + цветной блок",
   minimal: "Минимализм — светлый фон и линия",
+  bold: "Крупная типографика — заголовок на весь макет",
+  duotone: "Дуотон — фото в двух фирменных цветах",
+  editorial: "Журнальный — светлый фон, тонкие линейки",
+  certificate: "Грамота — рамка в фирменных цветах",
 };
 
 const LOGO_POS = {
@@ -88,12 +118,12 @@ function rng(seed) {
   return () => (s = (s * 16807) % 2147483647) / 2147483647;
 }
 
-function hexA(hex, a) {
+export function hexA(hex, a) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
-function wrap(ctx, text, maxWidth) {
+export function wrap(ctx, text, maxWidth) {
   const out = [];
   for (const para of String(text).split("\n")) {
     const words = para.split(/\s+/).filter(Boolean);
@@ -111,7 +141,7 @@ function wrap(ctx, text, maxWidth) {
   return out;
 }
 
-function fit(ctx, text, fontFn, maxWidth, maxLines, size, minSize) {
+export function fit(ctx, text, fontFn, maxWidth, maxLines, size, minSize) {
   let s = size;
   for (; s >= minSize; s = Math.floor(s * 0.92)) {
     ctx.font = fontFn(s);
@@ -122,7 +152,7 @@ function fit(ctx, text, fontFn, maxWidth, maxLines, size, minSize) {
   return { lines: wrap(ctx, text, maxWidth).slice(0, maxLines), size: minSize, overflow: true };
 }
 
-function drawCover(ctx, img, x, y, w, hgt, focusY = 0.5) {
+export function drawCover(ctx, img, x, y, w, hgt, focusY = 0.5) {
   const r = Math.max(w / img.width, hgt / img.height);
   const iw = img.width * r;
   const ih = img.height * r;
@@ -153,7 +183,7 @@ function regionLuminance(ctx, x, y, w, hgt) {
   }
 }
 
-function roundRect(ctx, x, y, w, hgt, r) {
+export function roundRect(ctx, x, y, w, hgt, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + hgt, r);
@@ -161,6 +191,28 @@ function roundRect(ctx, x, y, w, hgt, r) {
   ctx.arcTo(x, y + hgt, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+}
+
+/** Перекрашивает изображение в два фирменных цвета: тени — в цвет фона, света — в акцент. */
+function duotone(ctx, W, H, darkHex, lightHex) {
+  const toRgb = (hex) => {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  };
+  const [d, l] = [toRgb(darkHex), toRgb(lightHex)];
+  try {
+    const img = ctx.getImageData(0, 0, W, H);
+    const px = img.data;
+    for (let i = 0; i < px.length; i += 4) {
+      const t = (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255;
+      px[i] = d[0] + (l[0] - d[0]) * t;
+      px[i + 1] = d[1] + (l[1] - d[1]) * t;
+      px[i + 2] = d[2] + (l[2] - d[2]) * t;
+    }
+    ctx.putImageData(img, 0, 0);
+  } catch {
+    /* изображение недоступно для обработки — оставляем как есть */
+  }
 }
 
 /** Рисует макет. Возвращает список предупреждений о соответствии брендбуку. */
@@ -179,11 +231,21 @@ export async function draw(canvas, state, brand, fonts, photoImg, logoImgCache) 
   const bg = colors[state.bg]?.hex || colors[0].hex;
   const accent = colors[state.accent]?.hex || colors[1]?.hex || "#F5A623";
   const style = state.style;
-  const hasPhoto = Boolean(photoImg) && (style === "photo" || style === "split");
-  if ((style === "photo" || style === "split") && !photoImg) warnings.push("Для этого стиля загрузите фотографию или фон.");
+  const photoStyle = style === "photo" || style === "split" || style === "duotone";
+  const hasPhoto = Boolean(photoImg) && photoStyle;
+  if (photoStyle && !photoImg) warnings.push("Для этого стиля загрузите фотографию или фон.");
+  const lightBg = colors.find((c) => c.role === "фон")?.hex || "#FFFFFF";
+
+  // Безопасная зона площадки
+  const sz = SAFE[state.format] || { t: 0, b: 0, s: 0 };
+  const ins = { t: sz.t * H, b: sz.b * H, s: sz.s * W };
 
   // Область для текста
-  let area = { x: pad, y: pad, w: W - pad * 2, h: H - pad * 2 };
+  let area = { x: pad + ins.s, y: pad + ins.t, w: W - (pad + ins.s) * 2, h: H - pad * 2 - ins.t - ins.b };
+  let titleMul = 1;
+  let titleLines = 4;
+  let forceCenter = false;
+  let frameInset = 0;
   let textBg = bg;
   let anchor = "center";
 
@@ -191,13 +253,37 @@ export async function draw(canvas, state, brand, fonts, photoImg, logoImgCache) 
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  if (style === "minimal") {
-    const light = colors.find((c) => c.role === "фон")?.hex || "#FFFFFF";
+  if (style === "minimal" || style === "editorial" || style === "certificate") {
+    const light = lightBg;
     ctx.fillStyle = light;
     ctx.fillRect(0, 0, W, H);
     textBg = light;
+    if (style === "minimal") {
+      ctx.fillStyle = accent;
+      ctx.fillRect(pad, H - pad * 0.6 - ins.b, W - pad * 2, Math.max(4, base * 0.008));
+    } else if (style === "editorial") {
+      titleMul = 1.1; // линейки рисуются ниже, когда известна зона логотипа
+    } else {
+      // Грамота: двойная рамка в фирменных цветах, всё по центру
+      const o = pad * 0.45;
+      ctx.strokeStyle = bg;
+      ctx.lineWidth = Math.max(6, base * 0.012);
+      ctx.strokeRect(o, o, W - o * 2, H - o * 2);
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = Math.max(2, base * 0.004);
+      const o2 = o + base * 0.025;
+      ctx.strokeRect(o2, o2, W - o2 * 2, H - o2 * 2);
+      area = { x: o2 + pad * 0.6, y: o2 + pad * 0.5, w: W - (o2 + pad * 0.6) * 2, h: H - (o2 + pad * 0.5) * 2 };
+      forceCenter = true;
+      frameInset = o2;
+      titleMul = 1.5;
+      titleLines = 2;
+    }
+  } else if (style === "bold") {
     ctx.fillStyle = accent;
-    ctx.fillRect(pad, H - pad * 0.6, W - pad * 2, Math.max(4, base * 0.008));
+    ctx.fillRect(area.x, area.y + area.h - Math.max(10, base * 0.02), area.w * 0.25, Math.max(10, base * 0.02));
+    titleMul = 1.45;
+    titleLines = 5;
   } else if (style === "classic") {
     ctx.fillStyle = accent;
     ctx.fillRect(0, 0, Math.max(10, base * 0.025), H);
@@ -220,8 +306,9 @@ export async function draw(canvas, state, brand, fonts, photoImg, logoImgCache) 
     }
     ctx.fillStyle = accent;
     ctx.fillRect(pad, pad * 0.6, base * 0.12, Math.max(6, base * 0.012));
-  } else if (style === "photo" && photoImg) {
+  } else if ((style === "photo" || style === "duotone") && photoImg) {
     drawCover(ctx, photoImg, 0, 0, W, H, state.focusY);
+    if (style === "duotone") duotone(ctx, W, H, bg, accent);
     const g = ctx.createLinearGradient(0, landscape ? 0 : H * 0.25, 0, H);
     const o = state.overlay / 100;
     g.addColorStop(0, hexA(bg, o * 0.15));
@@ -230,7 +317,7 @@ export async function draw(canvas, state, brand, fonts, photoImg, logoImgCache) 
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
     anchor = "bottom";
-    area = { x: pad, y: H * (landscape ? 0.3 : 0.42), w: W - pad * 2, h: H * (landscape ? 0.7 : 0.58) - pad };
+    area = { x: pad + ins.s, y: H * (landscape ? 0.3 : 0.42), w: W - (pad + ins.s) * 2, h: H * (landscape ? 0.7 : 0.58) - pad - ins.b };
   } else if (style === "split" && photoImg) {
     if (landscape || W / H >= 1) {
       const pw = Math.round(W * 0.45);
@@ -258,10 +345,10 @@ export async function draw(canvas, state, brand, fonts, photoImg, logoImgCache) 
     }
     if (lw < (brand.minLogoPx || 0)) warnings.push(`Логотип меньше минимального размера по брендбуку (${brand.minLogoPx} px). Выберите размер крупнее.`);
     const clear = (brand.clearZone || 0) / 100 * lh;
-    const m = Math.max(pad * 0.7, clear);
+    const m = Math.max(pad * 0.7, clear) + frameInset; // на грамоте логотип внутри рамки
     const pos = state.logoPos;
-    const x = pos[1] === "l" ? m : pos[1] === "r" ? W - m - lw : (W - lw) / 2;
-    const y = pos[0] === "t" ? m : H - m - lh;
+    const x = pos[1] === "l" ? m + ins.s : pos[1] === "r" ? W - m - lw - ins.s : (W - lw) / 2;
+    const y = pos[0] === "t" ? m + ins.t : H - m - lh - ins.b;
     logoRect = { x, y, w: lw, h: lh, clear };
     // Резервируем зону логотипа + охранное поле, чтобы текст туда не заходил
     if (pos[0] === "t") {
@@ -278,18 +365,30 @@ export async function draw(canvas, state, brand, fonts, photoImg, logoImgCache) 
     warnings.push("Логотип не загружен — добавьте оригинал в «Бренд-ките».");
   }
 
+  // Журнальный стиль: тонкие линейки над и под текстом, уже за зоной логотипа
+  if (style === "editorial") {
+    const lw = Math.max(2, base * 0.003);
+    const gapY = pad * 0.35;
+    ctx.fillStyle = bg;
+    ctx.fillRect(area.x, area.y, area.w, lw);
+    ctx.fillRect(area.x, area.y + area.h, area.w, lw);
+    ctx.fillStyle = accent;
+    ctx.fillRect(area.x, area.y - lw * 2, area.w * 0.12, lw * 3);
+    area = { x: area.x, y: area.y + gapY, w: area.w, h: area.h - gapY * 2 };
+  }
+
   // --- Цвет текста: максимальный контраст из палитры ---
   let textColor;
   if (state.textColor === "auto") {
-    const bgForText = hasPhoto && style === "photo" ? bg : textBg;
+    const bgForText = hasPhoto && style !== "split" ? bg : textBg;
     const candidates = [...colors.map((c) => c.hex), "#FFFFFF", "#111111"];
     textColor = candidates.sort((a, b) => contrast(b, bgForText) - contrast(a, bgForText))[0];
   } else {
     textColor = colors[state.textColor]?.hex || "#111111";
   }
-  const contrastBg = style === "minimal" ? textBg : bg;
+  const contrastBg = textBg;
   const cr = contrast(textColor, contrastBg);
-  if (cr < 4.5 && !(style === "photo")) warnings.push(`Низкая контрастность текста и фона (${cr.toFixed(1)}:1, нужно от 4,5:1). Текст будет плохо читаться.`);
+  if (cr < 4.5 && !(style === "photo" || style === "duotone")) warnings.push(`Низкая контрастность текста и фона (${cr.toFixed(1)}:1, нужно от 4,5:1). Текст будет плохо читаться.`);
   const kickerColor = contrast(accent, contrastBg) >= 3 ? accent : textColor;
 
   // --- Текст ---
@@ -300,7 +399,7 @@ export async function draw(canvas, state, brand, fonts, photoImg, logoImgCache) 
   const blocks = [];
   const mw = area.w;
   if (t.kicker) blocks.push({ ...fit(ctx, t.kicker.toUpperCase(), BF(700), mw, 2, 34 * k, 18 * k), font: BF(700), color: kickerColor, gap: 22 * k, lh: 1.25, spacing: 2 * k });
-  if (t.title) blocks.push({ ...fit(ctx, t.title, HF(800), mw, 4, (landscape ? 104 : 96) * k, 40 * k), font: HF(800), color: textColor, gap: 26 * k, lh: 1.08 });
+  if (t.title) blocks.push({ ...fit(ctx, t.title, HF(800), mw, titleLines, (landscape ? 104 : 96) * k * titleMul, 40 * k), font: HF(800), color: textColor, gap: 26 * k, lh: 1.08 });
   if (t.subtitle) blocks.push({ ...fit(ctx, t.subtitle, BF(500), mw, 3, 42 * k, 24 * k), font: BF(500), color: textColor, gap: 22 * k, lh: 1.3 });
   if (t.body) blocks.push({ ...fit(ctx, t.body, BF(400), mw, 6, 32 * k, 20 * k), font: BF(400), color: textColor, gap: 22 * k, lh: 1.4, alpha: 0.92 });
   let ctaH = 0;
@@ -317,7 +416,7 @@ export async function draw(canvas, state, brand, fonts, photoImg, logoImgCache) 
   let y = anchor === "top" ? area.y : anchor === "bottom" ? area.y + area.h - total : area.y + (area.h - total) / 2;
   y = Math.max(area.y, y);
   ctx.textBaseline = "top";
-  const align = state.align;
+  const align = forceCenter ? "center" : state.align;
   const tx = align === "center" ? area.x + area.w / 2 : area.x;
   ctx.textAlign = align === "center" ? "center" : "left";
 
@@ -393,6 +492,16 @@ export async function draw(canvas, state, brand, fonts, photoImg, logoImgCache) 
     if (meta.bg === "dark" && !state.logoPlate && luminance(bg) > 0.6 && !hasPhoto)
       warnings.push("Версия логотипа для тёмного фона стоит на светлом.");
   }
+
+  // Подсказка: безопасная зона (только в предпросмотре, в файл не попадает)
+  if (state.showSafe && SAFE[state.format]) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255, 64, 64, .9)";
+    ctx.lineWidth = Math.max(2, base * 0.003);
+    ctx.setLineDash([base * 0.02, base * 0.012]);
+    ctx.strokeRect(ins.s, ins.t, W - ins.s * 2, H - ins.t - ins.b);
+    ctx.restore();
+  }
   return warnings;
 }
 
@@ -419,6 +528,7 @@ export async function render(root) {
     logoPos: "tl",
     logoSize: "m",
     logoPlate: false,
+    showSafe: false,
     align: "left",
     seed: 7,
     texts: { ...TEMPLATES.congrats.texts },
@@ -434,8 +544,8 @@ export async function render(root) {
       const w = await draw(canvas, state, brand, fonts, photoImg, logoCache);
       warnBox.replaceChildren(
         ...(w.length
-          ? w.map((x) => h("div", { class: "warn" }, "⚠ ", x))
-          : [h("div", { class: "ok" }, "✓ Макет соответствует настройкам бренд-кита. Логотип — оригинальный файл без изменений.")]),
+          ? w.map((x) => h("div", { class: "warn" }, x))
+          : [h("div", { class: "ok" }, "Макет соответствует настройкам бренд-кита. Логотип — оригинальный файл без изменений.")]),
       );
     });
   };
@@ -460,7 +570,17 @@ export async function render(root) {
   const templateSel = select("template", Object.entries(TEMPLATES).map(([k, v]) => [k, v.label]), state.template);
   templateSel.addEventListener("change", () => {
     state.template = templateSel.value;
-    fillTexts(TEMPLATES[state.template].texts);
+    const tpl = TEMPLATES[state.template];
+    if (tpl.format) {
+      state.format = tpl.format;
+      formatSel.value = tpl.format;
+    }
+    if (tpl.style) {
+      state.style = tpl.style;
+      styleSel.value = tpl.style;
+    }
+    fillTexts(tpl.texts);
+    syncSafe();
   });
 
   const photoInput = h("input", {
@@ -470,7 +590,7 @@ export async function render(root) {
       const f = e.target.files[0];
       if (!f) return;
       photoImg = await loadImage(URL.createObjectURL(f));
-      if (state.style !== "photo" && state.style !== "split") {
+      if (!["photo", "split", "duotone"].includes(state.style)) {
         state.style = "photo";
         styleSel.value = "photo";
       }
@@ -478,6 +598,23 @@ export async function render(root) {
     },
   });
   const styleSel = bind(select("style", Object.entries(STYLES), state.style), "style");
+  const formatSel = bind(select("format", Object.entries(FORMATS).map(([k, v]) => [k, v.label]), state.format), "format");
+  const safeNote = h("small", { class: "hint" });
+  const safeRow = h("label", { class: "check" }, bind(h("input", { type: "checkbox" }), "showSafe"), " Показать безопасную зону (в файл не попадает)");
+  const syncSafe = () => {
+    const z = SAFE[state.format];
+    safeRow.hidden = !z;
+    safeNote.hidden = !z;
+    safeNote.textContent = z ? `Текст и логотип держатся внутри зоны: ${z.note}.` : "";
+  };
+  formatSel.addEventListener("change", syncSafe);
+  syncSafe();
+  // Экспорт: рисуем чистую копию без служебной разметки
+  const exportFile = async (mime, ext) => {
+    const c = document.createElement("canvas");
+    await draw(c, { ...state, showSafe: false }, brand, fonts, photoImg, logoCache);
+    c.toBlob((b) => download(`${TEMPLATES[state.template].label} ${FORMATS[state.format].w}x${FORMATS[state.format].h}.${ext}`, b), mime, 0.92);
+  };
 
   const textsForm = h("div", { class: "stack" },
     ...TEXT_FIELDS.map(([k, label]) => {
@@ -562,7 +699,9 @@ export async function render(root) {
         h("section", { class: "card" },
           h("h3", {}, "Макет"),
           field("Что делаем", templateSel),
-          field("Формат", bind(select("format", Object.entries(FORMATS).map(([k, v]) => [k, v.label]), state.format), "format")),
+          field("Формат", formatSel),
+          safeRow,
+          safeNote,
           field("Стиль", styleSel),
           field("Фото / фон (по желанию)", photoInput, "Своё фото или фон из нейросети — без текста и логотипов"),
           field("Затемнение фото, %", bind(h("input", { type: "range", min: 0, max: 100, value: state.overlay }), "overlay", Number)),
@@ -573,7 +712,7 @@ export async function render(root) {
             field("Цвет текста", bind(select("textColor", [["auto", "Авто — лучший контраст"], ...colorOptions], "auto"), "textColor", (v) => (v === "auto" ? v : Number(v)))),
             field("Выравнивание", bind(select("align", [["left", "По левому краю"], ["center", "По центру"]], "left"), "align")),
           ),
-          h("button", { class: "btn btn-ghost", type: "button", onclick: () => { state.seed = Math.floor(Math.random() * 1e6) + 1; redraw(); } }, "↻ Другой вариант геометрии"),
+          h("button", { class: "btn btn-ghost", type: "button", onclick: () => { state.seed = Math.floor(Math.random() * 1e6) + 1; redraw(); } }, "Другой вариант фигур"),
         ),
         h("section", { class: "card" },
           h("h3", {}, "Логотип"),
@@ -600,12 +739,12 @@ export async function render(root) {
           h("button", {
             class: "btn btn-primary btn-lg",
             type: "button",
-            onclick: () => canvas.toBlob((b) => download(`${TEMPLATES[state.template].label} ${FORMATS[state.format].w}x${FORMATS[state.format].h}.png`, b), "image/png"),
+            onclick: () => exportFile("image/png", "png"),
           }, "Скачать PNG"),
           h("button", {
             class: "btn btn-lg",
             type: "button",
-            onclick: () => canvas.toBlob((b) => download(`${TEMPLATES[state.template].label} ${FORMATS[state.format].w}x${FORMATS[state.format].h}.jpg`, b), "image/jpeg", 0.92),
+            onclick: () => exportFile("image/jpeg", "jpg"),
           }, "Скачать JPG"),
         ),
         promptPanel.el,

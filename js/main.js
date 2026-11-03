@@ -9,20 +9,23 @@ import * as mentor from "./mentor.js";
 import * as proposal from "./proposal.js";
 import * as metrics from "./metrics.js";
 import * as roadmap from "./roadmap.js";
+import * as slides from "./slides.js";
 import { home, libraryPage, settingsPage } from "./pages.js";
+import { icon } from "./icons.js";
 
 const ROUTES = {
-  "": ["Главная", "🏠", home],
-  design: ["Дизайн-студия", "🎨", design.render],
-  docs: ["Документы", "📄", docs.render],
-  speech: ["Выступления", "🎤", speech.render],
-  mentor: ["HR-наставник", "🧭", mentor.render],
-  proposal: ["Предложение руководителю", "📈", proposal.render],
-  metrics: ["HR-метрики", "🧮", metrics.render],
-  roadmap: ["Карта развития HR", "🗺️", roadmap.render],
-  library: ["Мои материалы", "🗂️", libraryPage],
-  brand: ["Бренд-кит", "🏷️", brand.render],
-  settings: ["Настройки", "⚙️", settingsPage],
+  "": ["Главная", "home", home],
+  design: ["Дизайн-студия", "design", design.render],
+  docs: ["Документы", "docs", docs.render],
+  speech: ["Выступления", "speech", speech.render],
+  slides: ["Презентации", "slides", slides.render],
+  mentor: ["HR-наставник", "mentor", mentor.render],
+  proposal: ["Предложение руководителю", "proposal", proposal.render],
+  metrics: ["HR-метрики", "metrics", metrics.render],
+  roadmap: ["Карта развития HR", "roadmap", roadmap.render],
+  library: ["Мои материалы", "library", libraryPage],
+  brand: ["Бренд-кит", "brand", brand.render],
+  settings: ["Настройки", "settings", settingsPage],
 };
 
 const nav = document.getElementById("nav");
@@ -30,8 +33,8 @@ const main = document.getElementById("main");
 
 function buildNav() {
   nav.replaceChildren(
-    ...Object.entries(ROUTES).map(([key, [label, icon]]) =>
-      h("a", { href: `#/${key}`, "data-route": key }, h("span", { class: "nav-icon", "aria-hidden": "true" }, icon), h("span", {}, label)),
+    ...Object.entries(ROUTES).map(([key, [label, ic]]) =>
+      h("a", { href: `#/${key}`, "data-route": key }, icon(ic), h("span", {}, label)),
     ),
   );
 }

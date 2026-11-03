@@ -31,6 +31,14 @@ export const DEFAULT_BRAND = {
   logos: [], // { id, name, dataUrl, mime, width, height, bg: 'light'|'dark'|'any', size }
   clearZone: 50, // охранное поле, % от высоты логотипа
   minLogoPx: 120, // минимальная ширина логотипа на макете, px
+  // Голос бренда: 0 — левый полюс шкалы, 100 — правый
+  voice: { formal: 35, simple: 30, serious: 40, reserved: 50 },
+  traits: "",
+  weSay: "",
+  weDontSay: "",
+  toneDocs: "",
+  toneInternal: "",
+  toneSocial: "",
 };
 
 export async function loadBrand() {
@@ -333,17 +341,73 @@ export async function render(root) {
   root.append(
     h("section", { class: "card" }, h("h2", {}, "3. Цвета фирменного стиля"), h("p", { class: "hint" }, "В дизайн-студии можно будет выбирать только эти цвета — так макеты не выйдут за рамки брендбука."), palette),
     h("section", { class: "card" }, h("h2", {}, "4. Организация, тон и шрифты"), form),
+    voiceSection(brand),
     h("div", { class: "sticky-actions" },
       h("button", {
         class: "btn btn-primary btn-lg",
         type: "button",
         onclick: async () => {
           const d = formData(form);
+          const v = formData(root.querySelector("#voice-form"));
           Object.assign(brand, d, { clearZone: Number(d.clearZone) || 0, minLogoPx: Number(d.minLogoPx) || 0 });
+          brand.voice = Object.fromEntries(VOICE_SCALES.map(([k]) => [k, Number(v[k]) || 0]));
+          for (const k of ["traits", "weSay", "weDontSay", "toneDocs", "toneInternal", "toneSocial"]) brand[k] = v[k] || "";
           await saveBrand(brand);
           toast("Бренд-кит сохранён");
         },
       }, "Сохранить бренд-кит"),
+    ),
+  );
+}
+
+// ---------- Голос бренда ----------
+
+export const VOICE_SCALES = [
+  ["formal", "Официально", "Неформально"],
+  ["simple", "Просто", "Экспертно"],
+  ["serious", "Серьёзно", "С юмором"],
+  ["reserved", "Сдержанно", "Эмоционально"],
+];
+
+export function voiceText(brand) {
+  const v = brand.voice || {};
+  const side = (val, a, b) => (val < 34 ? `скорее «${a.toLowerCase()}»` : val > 66 ? `скорее «${b.toLowerCase()}»` : `между «${a.toLowerCase()}» и «${b.toLowerCase()}»`);
+  const scales = VOICE_SCALES.map(([k, a, b]) => side(v[k] ?? 50, a, b)).join("; ");
+  const parts = [`Голос бренда: ${scales}.`];
+  if (brand.traits) parts.push(`Черты характера: ${brand.traits}.`);
+  if (brand.weSay) parts.push(`Так мы пишем (примеры): ${brand.weSay}`);
+  if (brand.weDontSay) parts.push(`Так мы НЕ пишем: ${brand.weDontSay}`);
+  if (brand.toneDocs) parts.push(`Тон в официальных документах: ${brand.toneDocs}.`);
+  if (brand.toneInternal) parts.push(`Тон в рассылках и объявлениях для сотрудников: ${brand.toneInternal}.`);
+  if (brand.toneSocial) parts.push(`Тон в соцсетях и бренде работодателя: ${brand.toneSocial}.`);
+  return parts.join("\n");
+}
+
+function voiceSection(brand) {
+  const v = { ...DEFAULT_BRAND.voice, ...(brand.voice || {}) };
+  return h("section", { class: "card" },
+    h("h2", {}, "5. Голос бренда"),
+    h("p", { class: "hint" }, "Как организация звучит в текстах. Эти настройки учитываются во всех документах, выступлениях и макетах, а кнопка «Проверить тон бренда» сверяет с ними любой текст."),
+    h("form", { id: "voice-form", class: "stack", onsubmit: (e) => e.preventDefault() },
+      h("div", { class: "voice-scales" },
+        ...VOICE_SCALES.map(([k, a, b]) =>
+          h("div", { class: "voice-scale" },
+            h("span", {}, a),
+            h("input", { type: "range", name: k, min: 0, max: 100, step: 5, value: v[k], "aria-label": `${a} или ${b}` }),
+            h("span", {}, b),
+          ),
+        ),
+      ),
+      field("Черты характера бренда (3–5)", h("textarea", { name: "traits", rows: 2, placeholder: "Заботливые, но не навязчивые; уверенные, но не высокомерные; честные, без приукрашивания" }, brand.traits || "")),
+      h("div", { class: "grid-2" },
+        field("Так мы пишем", h("textarea", { name: "weSay", rows: 4, placeholder: "«Коллеги, напоминаем: до пятницы нужно…»\n«Спасибо, что помогли новичкам освоиться»" }, brand.weSay || "")),
+        field("Так мы НЕ пишем", h("textarea", { name: "weDontSay", rows: 4, placeholder: "«Довожу до вашего сведения…»\n«Дорогие сотрудники!!!»" }, brand.weDontSay || "")),
+      ),
+      h("div", { class: "grid-3" },
+        field("Тон в официальных документах", h("input", { name: "toneDocs", value: brand.toneDocs || "", placeholder: "строго, по ГОСТ, без эмоций" })),
+        field("Тон в рассылках сотрудникам", h("input", { name: "toneInternal", value: brand.toneInternal || "", placeholder: "на «вы», тепло, коротко" })),
+        field("Тон в соцсетях", h("input", { name: "toneSocial", value: brand.toneSocial || "", placeholder: "живо, можно лёгкий юмор" })),
+      ),
     ),
   );
 }

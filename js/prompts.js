@@ -7,6 +7,8 @@ const PRIVACY = `Конфиденциальность: если пользова
 
 const LEGAL = `Правовая точность: ссылайся на Трудовой кодекс РФ и другие акты только тогда, когда уверен в номере статьи. Если не уверен — пиши «(уточнить норму)». Никогда не выдумывай номера статей, приказов, постановлений, даты и суммы. Напоминай, что юридически значимые документы нужно сверить с актуальной редакцией закона (КонсультантПлюс / Гарант) и, при необходимости, с юристом.`;
 
+import { voiceText } from "./brand.js";
+
 export function brandContext(brand) {
   if (!brand) return "";
   const parts = [];
@@ -17,6 +19,7 @@ export function brandContext(brand) {
   if (brand.tone) parts.push(`Тон коммуникаций (tone of voice) по брендбуку: ${brand.tone}.`);
   if (brand.vocabulary) parts.push(`Принятые формулировки и обращения: ${brand.vocabulary}.`);
   if (brand.forbidden) parts.push(`Нежелательные слова и приёмы: ${brand.forbidden}.`);
+  if (brand.voice || brand.traits || brand.weSay) parts.push(voiceText(brand));
   if (brand.signer) parts.push(`Типовой подписант документов: ${brand.signer}.`);
   if (!parts.length) return "";
   return `\n\nКонтекст организации (учитывай всегда):\n${parts.join("\n")}`;

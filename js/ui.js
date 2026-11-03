@@ -108,7 +108,7 @@ export function formData(form) {
  * Панель результата: показывает поток текста от ИИ, затем даёт кнопки
  * «Копировать», «Скачать Word», «Сохранить в библиотеку», «Доработать».
  */
-export function resultPanel({ kind, title, onRefine }) {
+export function resultPanel({ kind, title, onRefine, extraActions = [] }) {
   let full = "";
   let controller = null;
   const body = h("div", { class: "result-body md" });
@@ -154,7 +154,9 @@ export function resultPanel({ kind, title, onRefine }) {
       },
     }, "Сохранить"),
   );
-  const tools = h("div", { class: "result-tools", hidden: true }, actions, onRefine && refineRow);
+  const extraBox = h("div", { style: { marginTop: "12px" } });
+  for (const make of extraActions) actions.append(make(() => splitNotes(full).main, extraBox));
+  const tools = h("div", { class: "result-tools", hidden: true }, actions, onRefine && refineRow, extraBox);
 
   const root = h("section", { class: "card result", hidden: true }, h("div", { class: "result-head" }, h("h3", {}, "Результат"), status, stopBtn), body, notes, tools);
 
@@ -221,6 +223,6 @@ export function emptyKeyNotice() {
     "div",
     { class: "notice" },
     "Чтобы ИИ-функции заработали, нужен ключ Anthropic API. ",
-    h("a", { href: "#/settings" }, "Открыть настройки →"),
+    h("a", { href: "#/settings" }, "Открыть настройки"),
   );
 }

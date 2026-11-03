@@ -5,6 +5,7 @@ import * as ai from "./ai.js";
 import { loadBrand } from "./brand.js";
 import { h, field, select, toast, resultPanel, formData, emptyKeyNotice } from "./ui.js";
 import { documentSystem, editSystem } from "./prompts.js";
+import { voiceAction, checkVoice, renderVoiceResult } from "./voice.js";
 
 export const DOC_TYPES = {
   order: {
@@ -112,7 +113,7 @@ export async function render(root, params = {}) {
   const brand = await loadBrand();
 
   // ---------- Вкладка 1: создать документ ----------
-  const panel = resultPanel({ kind: "document", onRefine: (t) => conv.refine(t) });
+  const panel = resultPanel({ kind: "document", onRefine: (t) => conv.refine(t), extraActions: [voiceAction("официальный документ")] });
   const conv = conversationRunner(panel, brand, documentSystem);
 
   const typeSel = select("type", Object.entries(DOC_TYPES).map(([k, v]) => [k, v.label]), params.type || "order");
@@ -181,7 +182,7 @@ export async function render(root, params = {}) {
   );
 
   // ---------- Вкладка 2: улучшить текст ----------
-  const editPanel = resultPanel({ kind: "edit", title: "Отредактированный текст", onRefine: (t) => editConv.refine(t) });
+  const editPanel = resultPanel({ kind: "edit", title: "Отредактированный текст", onRefine: (t) => editConv.refine(t), extraActions: [voiceAction("")] });
   const editConv = conversationRunner(editPanel, brand, editSystem);
   const editForm = h("form", {
     class: "card stack",
@@ -205,10 +206,39 @@ export async function render(root, params = {}) {
     h("button", { class: "btn btn-primary btn-lg", type: "submit" }, "Отредактировать"),
   );
 
+  // ---------- Вкладка 3: проверка тона бренда ----------
+  const voiceBox = h("div");
+  const voiceBtn = h("button", { class: "btn btn-primary btn-lg", type: "submit" }, "Проверить");
+  const voiceForm = h("form", {
+    class: "card stack",
+    onsubmit: async (e) => {
+      e.preventDefault();
+      const d = formData(voiceForm);
+      if (!d.vtext) return toast("Вставьте текст", "error");
+      voiceBtn.disabled = true;
+      voiceBtn.textContent = "Проверяю…";
+      try {
+        voiceBox.replaceChildren(renderVoiceResult(await checkVoice(d.vtext, d.channel)));
+      } catch (err) {
+        toast(err.message, "error");
+      } finally {
+        voiceBtn.disabled = false;
+        voiceBtn.textContent = "Проверить";
+      }
+    },
+  },
+    h("h2", {}, "Звучит ли текст как наша организация"),
+    h("p", { class: "hint" }, "Сверяет текст с голосом бренда из «Бренд-кита»: шкалы тона, черты характера, примеры «так пишем / так не пишем»."),
+    field("Текст", h("textarea", { name: "vtext", rows: 8, placeholder: "Пост, рассылка, письмо кандидату, текст вакансии…" })),
+    field("Где будет опубликован", select("channel", ["Рассылка сотрудникам", "Официальный документ", "Соцсети / бренд работодателя", "Письмо кандидату", "Текст вакансии", "Выступление"])),
+    voiceBtn,
+  );
+
   // ---------- Переключатель ----------
   const tabs = [
     ["create", "Создать документ", h("div", {}, form, panel.el)],
     ["edit", "Улучшить мой текст", h("div", {}, editForm, editPanel.el)],
+    ["voice", "Проверить тон бренда", h("div", {}, voiceForm, voiceBox)],
   ];
   const tabBar = h("div", { class: "tabs", role: "tablist" });
   const tabBody = h("div");

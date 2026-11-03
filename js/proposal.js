@@ -4,7 +4,8 @@
 import * as ai from "./ai.js";
 import * as store from "./store.js";
 import { loadBrand } from "./brand.js";
-import { h, field, toast, resultPanel, formData, emptyKeyNotice } from "./ui.js";
+import { voiceAction } from "./voice.js";
+import { h, field, toast, resultPanel, formData, splitNotes, emptyKeyNotice } from "./ui.js";
 import { proposalSystem } from "./prompts.js";
 
 const IDEAS = [
@@ -28,6 +29,7 @@ export async function render(root, params = {}) {
   const panel = resultPanel({
     kind: "proposal",
     title: "Предложение руководителю",
+    extraActions: [voiceAction("служебная записка руководителю")],
     onRefine: (t) => messages.length && run([...messages, { role: "user", content: `Доработай: ${t}\nВерни документ целиком в том же формате.` }]),
   });
   const run = (msgs) =>
@@ -94,5 +96,17 @@ export async function render(root, params = {}) {
     (await ai.hasKey()) ? "" : emptyKeyNotice(),
     form,
     panel.el,
+    h("div", { class: "row" },
+      h("button", {
+        class: "btn",
+        type: "button",
+        onclick: async () => {
+          const { main } = splitNotes(panel.text || "");
+          if (!main) return toast("Сначала составьте предложение", "error");
+          await store.set("slides-source", main);
+          location.hash = "#/slides?strategy=initiative";
+        },
+      }, "Сделать презентацию для защиты"),
+    ),
   );
 }

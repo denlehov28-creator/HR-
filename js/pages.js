@@ -5,6 +5,7 @@ import * as ai from "./ai.js";
 import { loadBrand } from "./brand.js";
 import { h, md, field, select, toast, copyText, plain, download } from "./ui.js";
 import { exportDocx } from "./export.js";
+import { icon } from "./icons.js";
 
 const KIND_LABEL = {
   document: "Документ",
@@ -13,6 +14,8 @@ const KIND_LABEL = {
   proposal: "Предложение",
   mentor: "Совет наставника",
   "image-prompt": "Промпт для фона",
+  slides: "Презентация",
+  "voice-check": "Проверка тона",
 };
 
 // ---------- Главная ----------
@@ -20,7 +23,7 @@ const KIND_LABEL = {
 export async function home(root) {
   const brand = await loadBrand();
   const hasKey = await ai.hasKey();
-  const tile = (href, icon, title, text) => h("a", { class: "tile", href }, h("span", { class: "tile-icon", "aria-hidden": "true" }, icon), h("b", {}, title), h("span", {}, text));
+  const tile = (href, ic, title, text) => h("a", { class: "tile", href }, h("span", { class: "tile-icon" }, icon(ic)), h("b", {}, title), h("span", {}, text));
 
   const steps = [
     [hasKey, "Подключить ИИ (ключ API)", "#/settings"],
@@ -32,22 +35,23 @@ export async function home(root) {
 
   root.append(
     h("div", { class: "page-head" },
-      h("h1", {}, brand.orgName ? `HR-ассистент · ${brand.orgName}` : "HR-ассистент"),
+      h("h1", {}, brand.orgName ? `HR-ассистент: ${brand.orgName}` : "HR-ассистент"),
       h("p", { class: "lead" }, "Визуалы по брендбуку, деловые документы, выступления и опытный HR-наставник — в одном месте."),
     ),
     done === steps.length ? "" : h("section", { class: "card" },
-      h("h2", {}, `Первые шаги · ${done} из ${steps.length}`),
-      h("ol", { class: "steps" }, steps.map(([ok, text, href]) => h("li", { class: ok ? "done" : "" }, ok ? "✓ " : "", h("a", { href }, text)))),
+      h("h2", {}, `Первые шаги: ${done} из ${steps.length}`),
+      h("ol", { class: "steps" }, steps.map(([ok, text, href]) => h("li", { class: ok ? "done" : "" }, h("a", { href }, text)))),
     ),
     h("div", { class: "tiles" },
-      tile("#/design", "🎨", "Дизайн-студия", "Поздравления, вакансии, анонсы — по брендбуку, логотип без изменений"),
-      tile("#/docs", "📄", "Документы", "Приказы, письма, положения, уведомления в деловом стиле + Word"),
-      tile("#/speech", "🎤", "Выступления", "Текст под время, карточки, вопросы из зала, суфлёр"),
-      tile("#/mentor", "🧭", "HR-наставник", "Советы опытного HR-директора: что развивать и как"),
-      tile("#/proposal", "📈", "Предложение руководителю", "Записка на одну страницу с цифрами и ответами на возражения"),
-      tile("#/metrics", "🧮", "HR-метрики", "Текучесть, стоимость замены, eNPS, ROI — в рублях"),
-      tile("#/roadmap", "🗺️", "Карта развития HR", "Самодиагностика и приоритеты на полгода"),
-      tile("#/library", "🗂️", "Мои материалы", "Всё сохранённое: документы, выступления, советы"),
+      tile("#/design", "design", "Дизайн-студия", "Поздравления, вакансии, анонсы — по брендбуку, логотип без изменений"),
+      tile("#/docs", "docs", "Документы", "Приказы, письма, положения, уведомления в деловом стиле + Word"),
+      tile("#/speech", "speech", "Выступления", "Текст под время, карточки, вопросы из зала, суфлёр"),
+      tile("#/slides", "slides", "Презентации", "Слайды в фирменном стиле из выступления или предложения, показ и PDF"),
+      tile("#/mentor", "mentor", "HR-наставник", "Советы опытного HR-директора: что развивать и как"),
+      tile("#/proposal", "proposal", "Предложение руководителю", "Записка на одну страницу с цифрами и ответами на возражения"),
+      tile("#/metrics", "metrics", "HR-метрики", "Текучесть, стоимость замены, eNPS, ROI — в рублях"),
+      tile("#/roadmap", "roadmap", "Карта развития HR", "Самодиагностика и приоритеты на полгода"),
+      tile("#/library", "library", "Мои материалы", "Всё сохранённое: документы, выступления, советы"),
     ),
     h("section", { class: "card rules" },
       h("h2", {}, "Важно знать"),
@@ -199,7 +203,8 @@ export async function settingsPage(root) {
             status.textContent = "Проверяю…";
             try {
               await ai.ping();
-              status.textContent = "✓ Подключение работает";
+              status.textContent = "Подключение работает";
+              status.className = "ok";
             } catch (e) {
               status.textContent = `✗ ${e.message}`;
             }

@@ -34,7 +34,7 @@ export async function render(root, params = {}) {
 
   const bubble = (m) => {
     const text = typeof m.content === "string" ? m.content : m.content.filter((b) => b.type === "text").map((b) => b.text).join("\n");
-    const attach = Array.isArray(m.content) && m.content.some((b) => b.type !== "text") ? h("div", { class: "attach" }, "📎 приложен файл") : null;
+    const attach = Array.isArray(m.content) && m.content.some((b) => b.type !== "text") ? h("div", { class: "attach" }, "Приложен файл") : null;
     const body = h("div", { class: "md", html: md(text) });
     return h("div", { class: `msg msg-${m.role}` },
       attach,
@@ -153,7 +153,7 @@ export async function render(root, params = {}) {
       list,
       h("form", { class: "chat-form", onsubmit: (e) => { e.preventDefault(); send(); } },
         input,
-        h("div", { class: "row" }, h("label", { class: "file-label" }, "📎 Файл ", fileInput), stopBtn, sendBtn),
+        h("div", { class: "row" }, h("label", { class: "file-label" }, "Приложить файл: ", fileInput), stopBtn, sendBtn),
       ),
     ),
   );

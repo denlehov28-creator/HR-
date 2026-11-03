@@ -2,7 +2,9 @@
 // плюс режим суфлёра с таймером для репетиции.
 
 import * as ai from "./ai.js";
+import * as store from "./store.js";
 import { loadBrand } from "./brand.js";
+import { voiceAction } from "./voice.js";
 import { h, field, select, toast, resultPanel, formData, splitNotes, md, emptyKeyNotice } from "./ui.js";
 import { speechSystem } from "./prompts.js";
 
@@ -45,10 +47,10 @@ function teleprompter(text) {
     timer.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
     requestAnimationFrame(tick);
   };
-  const playBtn = h("button", { class: "btn btn-primary", type: "button" }, "▶ Старт");
+  const playBtn = h("button", { class: "btn btn-primary", type: "button" }, "Старт");
   playBtn.onclick = () => {
     running = !running;
-    playBtn.textContent = running ? "❚❚ Пауза" : "▶ Старт";
+    playBtn.textContent = running ? "Пауза" : "Старт";
     last = 0;
     if (running) requestAnimationFrame(tick);
   };
@@ -73,7 +75,7 @@ function teleprompter(text) {
       h("button", { class: "btn", type: "button", onclick: () => setFont(4) }, "A+"),
       h("button", { class: "btn", type: "button", onclick: () => { scroller.scrollTop = 0; elapsed = 0; timer.textContent = "00:00"; } }, "В начало"),
       timer,
-      h("button", { class: "btn btn-ghost", type: "button", onclick: () => { running = false; overlay.remove(); document.removeEventListener("keydown", onKey); } }, "✕ Закрыть"),
+      h("button", { class: "btn btn-ghost", type: "button", onclick: () => { running = false; overlay.remove(); document.removeEventListener("keydown", onKey); } }, "Закрыть"),
     ),
     h("div", { class: "tp-guide" }),
     scroller,
@@ -98,6 +100,7 @@ export async function render(root) {
   const panel = resultPanel({
     kind: "speech",
     title: "Выступление",
+    extraActions: [voiceAction("выступление")],
     onRefine: (t) => {
       if (!messages.length) return;
       run([...messages, { role: "user", content: `Доработай выступление: ${t}\nВерни всё целиком в том же формате.` }]);
@@ -172,6 +175,16 @@ export async function render(root) {
           teleprompter(main);
         },
       }, "Открыть суфлёр (репетиция)"),
+      h("button", {
+        class: "btn",
+        type: "button",
+        onclick: async () => {
+          const { main } = splitNotes(panel.text || "");
+          if (!main) return toast("Сначала подготовьте текст выступления", "error");
+          await store.set("slides-source", main);
+          location.hash = "#/slides?strategy=free";
+        },
+      }, "Сделать презентацию"),
     ),
   );
 }

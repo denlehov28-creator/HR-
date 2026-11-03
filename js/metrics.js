@@ -40,7 +40,7 @@ function calc({ id, title, desc, inputs, compute, explain }) {
           await store.set("proposal-facts", facts.slice(-10));
           toast("Цифры добавлены в «Предложение руководителю»");
         },
-      }, "→ В предложение руководителю"),
+      }, "Перенести в предложение руководителю"),
     ),
   );
   update();
