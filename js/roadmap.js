@@ -2,7 +2,11 @@
 // приоритеты, первые шаги и переход к наставнику / предложению руководителю.
 
 import * as store from "./store.js";
-import { h } from "./ui.js";
+import * as ai from "./ai.js";
+import { h, resultPanel, toast } from "./ui.js";
+import { loadBrand } from "./brand.js";
+import { mentorSystem, strategySystem } from "./prompts.js";
+import { orgContext } from "./org.js";
 
 export const AREAS = [
   {
@@ -140,7 +144,34 @@ function level(score) {
 
 export async function render(root) {
   const answers = await store.get("roadmap", {});
+  const brand = await loadBrand();
   const result = h("div");
+  let lastSummary = "";
+  let messages = [];
+  let lastSystem = null;
+  const panel = resultPanel({
+    kind: "strategy",
+    title: "План развития HR",
+    onRefine: (t) => messages.length && runDoc(lastSystem, [...messages, { role: "user", content: `Доработай: ${t}\nВерни текст целиком в том же формате.` }]),
+  });
+  const runDoc = (systemFn, msgs) => {
+    lastSystem = systemFn;
+    return panel.run(async (onText, signal) => {
+      const res = await ai.generate({ system: await systemFn(), messages: msgs, onText, signal, effort: "high" });
+      messages = [...msgs, { role: "assistant", content: res.text }];
+      return res;
+    });
+  };
+  const ask = (kind) => {
+    if (!lastSummary) return toast("Сначала отметьте, что уже есть в организации", "error");
+    if (kind === "short") {
+      runDoc(async () => mentorSystem(brand, await orgContext()), [{ role: "user", content: `${lastSummary}\n\nНапиши коротко (до 1 страницы, простым текстом): 3 главных направления развития HR для нашей организации, почему именно они и первые шаги на месяц по каждому.` }]);
+    } else if (kind === "full") {
+      runDoc(async () => strategySystem(brand, await orgContext()), [{ role: "user", content: `${lastSummary}\n\nСоставь полный документ: стратегию развития HR на год на основе самодиагностики, со всеми разделами.` }]);
+    } else {
+      store.set("slides-source", `${lastSummary}\n\nЗадача презентации: предложить руководителю план развития HR на год — где мы сейчас, 3 приоритета, что даст организации, что нужно от руководителя.`).then(() => (location.hash = "#/slides?strategy=initiative"));
+    }
+  };
 
   const scoreOf = (a) => Math.round((a.items.filter((_, i) => answers[`${a.id}.${i}`]).length / a.items.length) * 100);
 
@@ -150,6 +181,11 @@ export async function render(root) {
     const weakest = [...scored].sort((x, y) => x.s - y.s).slice(0, 3);
     const total = Math.round(scored.reduce((s, x) => s + x.s, 0) / scored.length);
     const summary = scored.map(({ a, s }) => `${a.title}: ${s}%`).join("; ");
+    if (anyAnswered) {
+      const missing = weakest.map(({ a }) => `${a.title}: нет — ${a.items.filter((_, i) => !answers[`${a.id}.${i}`]).join("; ")}`).join("\n");
+      lastSummary = `Самодиагностика HR-процессов. Общий уровень зрелости: ${total} %. По направлениям: ${summary}.\nСлабые места и чего не хватает:\n${missing}`;
+      store.set("roadmap-summary", lastSummary);
+    }
     const mentorPrompt = `Я прошла самодиагностику HR-процессов в нашей организации. Результаты по направлениям: ${summary}. Слабые места: ${weakest.map((w) => w.a.title).join(", ")}. Составь мне план развития HR на 6 месяцев: быстрые победы на первый месяц, затем 2–3 стратегических проекта. Учти, что сначала нужно получить поддержку руководителя.`;
 
     result.replaceChildren(
@@ -181,8 +217,13 @@ export async function render(root) {
             ),
           ),
         ),
+        h("h3", {}, "Получить план развития"),
+        h("p", { class: "hint" }, "С учётом профиля и правил организации из раздела «HR-наставник»."),
         h("div", { class: "row" },
-          h("a", { class: "btn btn-primary btn-lg", href: `#/mentor?prompt=${encodeURIComponent(mentorPrompt)}` }, "Составить план развития с наставником"),
+          h("button", { class: "btn btn-primary btn-lg", type: "button", onclick: () => ask("short") }, "Коротко текстом"),
+          h("button", { class: "btn btn-lg", type: "button", onclick: () => ask("full") }, "Полная стратегия (документ Word)"),
+          h("button", { class: "btn btn-lg", type: "button", onclick: () => ask("slides") }, "Презентация для руководителя"),
+          h("a", { class: "btn btn-ghost", href: `#/mentor?prompt=${encodeURIComponent(mentorPrompt)}` }, "Обсудить с наставником"),
         ),
       ) : "",
     );
@@ -220,5 +261,6 @@ export async function render(root) {
     form,
     result,
   );
+  root.append(panel.el);
   drawResult();
 }

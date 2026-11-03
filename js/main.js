@@ -10,6 +10,7 @@ import * as proposal from "./proposal.js";
 import * as metrics from "./metrics.js";
 import * as roadmap from "./roadmap.js";
 import * as slides from "./slides.js";
+import * as assistant from "./assistant.js";
 import { home, libraryPage, settingsPage } from "./pages.js";
 import { icon } from "./icons.js";
 
@@ -20,6 +21,7 @@ const ROUTES = {
   speech: ["Выступления", "speech", speech.render],
   slides: ["Презентации", "slides", slides.render],
   mentor: ["HR-наставник", "mentor", mentor.render],
+  assistant: ["Помощник", "assistant", assistant.render],
   proposal: ["Предложение руководителю", "proposal", proposal.render],
   metrics: ["HR-метрики", "metrics", metrics.render],
   roadmap: ["Карта развития HR", "roadmap", roadmap.render],

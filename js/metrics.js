@@ -3,6 +3,7 @@
 
 import * as store from "./store.js";
 import { h, field, toast } from "./ui.js";
+import { renderReport } from "./reports.js";
 
 const fmt = (n, d = 0) =>
   Number.isFinite(n) ? n.toLocaleString("ru-RU", { maximumFractionDigits: d, minimumFractionDigits: 0 }) : "—";
@@ -47,12 +48,27 @@ function calc({ id, title, desc, inputs, compute, explain }) {
   return card;
 }
 
-export async function render(root) {
+export async function render(root, params = {}) {
+  const reportBox = h("div");
+  const calcBox = h("div");
+  const tabBar = h("div", { class: "tabs", role: "tablist" });
+  const body = h("div");
+  const tabs = [["report", "Отчёт по выгрузке 1С", reportBox], ["calc", "Калькуляторы", calcBox]];
+  const show = (key) => {
+    for (const b of tabBar.children) b.classList.toggle("active", b.dataset.key === key);
+    body.replaceChildren(tabs.find((t) => t[0] === key)[2]);
+  };
+  for (const [key, label] of tabs) tabBar.append(h("button", { type: "button", "data-key": key, onclick: () => show(key) }, label));
   root.append(
     h("div", { class: "page-head" },
-      h("h1", {}, "HR-метрики"),
-      h("p", { class: "lead" }, "Руководитель принимает решения по цифрам. Посчитайте проблему в деньгах — и предложение станет в разы убедительнее. Расчёты работают без интернета."),
+      h("h1", {}, "HR-метрики и отчёты"),
+      h("p", { class: "lead" }, "Руководитель принимает решения по цифрам. Постройте отчёт по выгрузке из 1С или посчитайте проблему в деньгах — предложение станет в разы убедительнее."),
     ),
+    tabBar,
+    body,
+  );
+  await renderReport(reportBox);
+  calcBox.append(
     h("div", { class: "metrics-grid" },
       calc({
         id: "turnover",
@@ -208,4 +224,5 @@ export async function render(root) {
       }),
     ),
   );
+  show(params.tab || "report");
 }

@@ -11,6 +11,7 @@ const entries = {
   anthropic: `export { default } from "@anthropic-ai/sdk";`,
   marked: `export { marked } from "marked";`,
   purify: `export { default } from "dompurify";`,
+  excel: `export { readSheet } from "read-excel-file/browser";`,
 };
 
 for (const [name, contents] of Object.entries(entries)) {

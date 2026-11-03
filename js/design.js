@@ -7,6 +7,7 @@ import * as ai from "./ai.js";
 import { loadBrand, applyFonts, loadImage, luminance, contrast, pickLogo } from "./brand.js";
 import { h, field, select, toast, download, resultPanel, emptyKeyNotice } from "./ui.js";
 import { designCopySystem, imagePromptSystem, brandContext } from "./prompts.js";
+import { ENGINES, writePrompts, svgIllustration, kandinsky, gptImage, proofreadImage } from "./imagegen.js";
 
 export const FORMATS = {
   post: { label: "Пост 1:1 (1080×1080)", w: 1080, h: 1080 },
@@ -684,6 +685,87 @@ export async function render(root) {
     },
   }, "Промпт для фона в нейросети");
 
+  // --- Иллюстрации ---
+  const engineSel = select("engine", Object.entries(ENGINES), "svg");
+  const illoBrief = h("textarea", { rows: 3, placeholder: "Что изобразить? Например: «команда празднует, конфетти и воздушные шары», «новый сотрудник на первом рабочем дне, светлый офис»" });
+  const illoStatus = h("span", { class: "hint" });
+  const gallery = h("div", { class: "row", style: { flexWrap: "wrap" } });
+  const generated = [];
+  const useImage = (item) => {
+    photoImg = item.img;
+    if (!["photo", "split", "duotone"].includes(state.style)) {
+      state.style = item.engine === "svg" ? "split" : "photo";
+      styleSel.value = state.style;
+    }
+    redraw();
+  };
+  const illoBtn = h("button", {
+    class: "btn btn-primary",
+    type: "button",
+    onclick: async () => {
+      const task = illoBrief.value.trim() || brief.value.trim() || TEMPLATES[state.template].label;
+      const F = FORMATS[state.format];
+      const zone = `Формат ${F.w}×${F.h}. Логотип будет: ${LOGO_POS[state.logoPos]}; текст — ${["split"].includes(state.style) ? "в соседнем цветном блоке" : "в нижней части"}.`;
+      illoBtn.disabled = true;
+      try {
+        let res;
+        if (engineSel.value === "svg") {
+          illoStatus.textContent = "Claude рисует иллюстрацию… это может занять до минуты";
+          const isSplit = state.style === "split";
+          const [w, hh] = isSplit ? (F.w / F.h >= 1 ? [Math.round(F.w * 0.45), F.h] : [F.w, Math.round(F.h * 0.48)]) : [F.w, F.h];
+          res = await svgIllustration(`${task}. ${zone}`, brand, w, hh);
+        } else {
+          illoStatus.textContent = "Готовлю описание для генератора…";
+          const p = await writePrompts(task, brand, zone);
+          if (engineSel.value === "kandinsky") res = await kandinsky(p.ru, p.negative, F.w, F.h, (t) => (illoStatus.textContent = t));
+          else {
+            illoStatus.textContent = "GPT рисует изображение…";
+            res = await gptImage(p.en, F.w, F.h);
+          }
+        }
+        const item = { ...res, engine: engineSel.value };
+        generated.unshift(item);
+        gallery.prepend(h("button", { class: "btn btn-ghost", type: "button", style: { padding: "2px" }, title: "Использовать в макете", onclick: () => useImage(item) },
+          h("img", { src: item.img.src, alt: "Вариант иллюстрации", style: { width: "96px", height: "72px", objectFit: "cover", borderRadius: "6px" } })));
+        useImage(item);
+        illoStatus.textContent = "Готово. Можно создать ещё вариант — все варианты сохраняются ниже до закрытия раздела.";
+      } catch (e) {
+        illoStatus.textContent = "";
+        toast(e.message, "error");
+      } finally {
+        illoBtn.disabled = false;
+      }
+    },
+  }, "Создать иллюстрацию");
+  const illoDownload = h("button", {
+    class: "btn btn-ghost",
+    type: "button",
+    onclick: () => {
+      const it = generated.find((g) => g.img === photoImg);
+      if (!it) return toast("Сначала создайте иллюстрацию", "error");
+      download(`Иллюстрация.${it.ext}`, it.blob);
+    },
+  }, "Скачать иллюстрацию отдельно");
+
+  // --- Проверка готового макета на ошибки ---
+  const proofPanel = resultPanel({ kind: "assistant", title: "Проверка макета" });
+  const proofBtn = h("button", {
+    class: "btn btn-lg",
+    type: "button",
+    onclick: async () => {
+      const c = document.createElement("canvas");
+      await draw(c, { ...state, showSafe: false }, brand, fonts, photoImg, logoCache);
+      // Для проверки текста хватает уменьшенной копии
+      const k = Math.min(1, 1568 / Math.max(c.width, c.height));
+      const small = document.createElement("canvas");
+      small.width = Math.round(c.width * k);
+      small.height = Math.round(c.height * k);
+      small.getContext("2d").drawImage(c, 0, 0, small.width, small.height);
+      const blob = await new Promise((r) => small.toBlob(r, "image/png"));
+      proofPanel.run(await proofreadImage(blob));
+    },
+  }, "Проверить на ошибки");
+
   const logoSel = select("logoId", [["auto", "Авто — по цвету фона"], ...brand.logos.map((l) => [l.id, l.name])], "auto");
   bind(logoSel, "logoId");
 
@@ -713,6 +795,14 @@ export async function render(root) {
             field("Выравнивание", bind(select("align", [["left", "По левому краю"], ["center", "По центру"]], "left"), "align")),
           ),
           h("button", { class: "btn btn-ghost", type: "button", onclick: () => { state.seed = Math.floor(Math.random() * 1e6) + 1; redraw(); } }, "Другой вариант фигур"),
+        ),
+        h("section", { class: "card stack" },
+          h("h3", {}, "Иллюстрация"),
+          field("Чем рисовать", engineSel),
+          field("Что изобразить", illoBrief, "Если пусто — возьмём задачу макета. Логотип в генератор не отправляется: он накладывается оригинальным файлом."),
+          h("div", { class: "row" }, illoBtn, illoDownload),
+          illoStatus,
+          gallery,
         ),
         h("section", { class: "card" },
           h("h3", {}, "Логотип"),
@@ -746,7 +836,9 @@ export async function render(root) {
             type: "button",
             onclick: () => exportFile("image/jpeg", "jpg"),
           }, "Скачать JPG"),
+          proofBtn,
         ),
+        proofPanel.el,
         promptPanel.el,
         h("details", { class: "card help" },
           h("summary", {}, "Как получить фон с иллюстрацией из нейросети и не испортить логотип"),

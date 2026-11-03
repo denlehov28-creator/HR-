@@ -15,6 +15,11 @@ const KIND_LABEL = {
   mentor: "Совет наставника",
   "image-prompt": "Промпт для фона",
   slides: "Презентация",
+  strategy: "Стратегия",
+  process: "Процесс",
+  "hr-process": "HR-документ",
+  assistant: "Помощник",
+  report: "HR-отчёт",
   "voice-check": "Проверка тона",
 };
 
@@ -47,9 +52,10 @@ export async function home(root) {
       tile("#/docs", "docs", "Документы", "Приказы, письма, положения, уведомления в деловом стиле + Word"),
       tile("#/speech", "speech", "Выступления", "Текст под время, карточки, вопросы из зала, суфлёр"),
       tile("#/slides", "slides", "Презентации", "Слайды в фирменном стиле из выступления или предложения, показ и PDF"),
-      tile("#/mentor", "mentor", "HR-наставник", "Советы опытного HR-директора: что развивать и как"),
+      tile("#/mentor", "mentor", "HR-наставник", "Стратегия на год, процессы и советы под условия и правила вашей организации"),
+      tile("#/assistant", "assistant", "Помощник", "Письма коллегам, проверка грамотности текста и картинок"),
       tile("#/proposal", "proposal", "Предложение руководителю", "Записка на одну страницу с цифрами и ответами на возражения"),
-      tile("#/metrics", "metrics", "HR-метрики", "Текучесть, стоимость замены, eNPS, ROI — в рублях"),
+      tile("#/metrics", "metrics", "HR-метрики и отчёты", "Отчёты по выгрузке из 1С, текучесть, стоимость замены, зарплаты, eNPS"),
       tile("#/roadmap", "roadmap", "Карта развития HR", "Самодиагностика и приоритеты на полгода"),
       tile("#/library", "library", "Мои материалы", "Всё сохранённое: документы, выступления, советы"),
     ),
@@ -148,12 +154,20 @@ function b64ToBuf(b64) {
 export async function settingsPage(root) {
   const s = await ai.settings();
   const keyInput = h("input", { type: "password", value: s.apiKey, placeholder: "sk-ant-…", autocomplete: "off" });
+  const oaKey = h("input", { type: "password", value: s.openaiKey || "", placeholder: "sk-…", autocomplete: "off" });
+  const oaModel = h("input", { type: "text", value: s.openaiModel || "gpt-image-1" });
+  const fbKey = h("input", { type: "password", value: s.fbKey || "", autocomplete: "off" });
+  const fbSecret = h("input", { type: "password", value: s.fbSecret || "", autocomplete: "off" });
   const modelSel = select("model", ai.MODELS.map((m) => [m.id, m.label]), s.model);
   const effortSel = select("effort", [["low", "Быстро — для простых текстов"], ["medium", "Сбалансированно (рекомендуется)"], ["high", "Тщательно — дольше и дороже"]], s.effort);
   const status = h("span", { class: "hint" });
 
   const save = async () => {
-    await store.set("settings", { apiKey: keyInput.value.trim(), model: modelSel.value, effort: effortSel.value });
+    await store.set("settings", {
+      apiKey: keyInput.value.trim(), model: modelSel.value, effort: effortSel.value,
+      openaiKey: oaKey.value.trim(), openaiModel: oaModel.value.trim() || "gpt-image-1",
+      fbKey: fbKey.value.trim(), fbSecret: fbSecret.value.trim(),
+    });
   };
 
   const importInput = h("input", {
@@ -212,6 +226,20 @@ export async function settingsPage(root) {
         }, "Проверить подключение"),
         status,
       ),
+    ),
+    h("section", { class: "card stack" },
+      h("h2", {}, "Генераторы изображений (по желанию)"),
+      h("p", { class: "hint" }, "Нужны для иллюстраций в дизайн-студии. Векторные иллюстрации от Claude работают без дополнительных ключей. В генераторы отправляется только текстовое описание картинки — логотип и данные бренд-кита не отправляются."),
+      h("h3", {}, "Kandinsky (Сбер)"),
+      h("ol", { class: "hint-list" },
+        h("li", {}, "Зарегистрируйтесь на ", h("a", { href: "https://fusionbrain.ai/", target: "_blank", rel: "noopener" }, "fusionbrain.ai"), " и откройте раздел API."),
+        h("li", {}, "Создайте ключ: сервис выдаст API-ключ и секретный ключ — вставьте оба."),
+      ),
+      h("div", { class: "grid-2" }, field("API-ключ FusionBrain", fbKey), field("Секретный ключ", fbSecret)),
+      h("h3", {}, "GPT Image (OpenAI)"),
+      h("p", { class: "hint" }, "Ключ создаётся на platform.openai.com → API keys. Сервис доступен не во всех странах — проверьте условия использования."),
+      h("div", { class: "grid-2" }, field("Ключ OpenAI", oaKey), field("Модель", oaModel, "По умолчанию gpt-image-1")),
+      h("button", { class: "btn btn-primary", type: "button", onclick: async () => { await save(); toast("Сохранено"); } }, "Сохранить ключи"),
     ),
     h("section", { class: "card stack" },
       h("h2", {}, "Резервная копия"),
