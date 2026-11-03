@@ -1,0 +1,18 @@
+{
+  "name": "hr-assistant",
+  "private": true,
+  "version": "1.0.0",
+  "description": "HR-ассистент: брендовые изображения, деловые документы, выступления, HR-наставник",
+  "type": "module",
+  "scripts": {
+    "build:vendor": "node tools/build-vendor.mjs",
+    "serve": "npx --yes http-server -p 8080 -c-1 ."
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "1.3.0",
+    "docx": "9.5.1",
+    "marked": "16.4.1",
+    "dompurify": "3.3.0",
+    "esbuild": "0.25.11"
+  }
+}
