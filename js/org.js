@@ -138,7 +138,7 @@ export async function renderRules(root) {
         : [h("p", { class: "muted" }, "Документы ещё не загружены.")]),
     );
   };
-  const input = h("input", { type: "file", multiple: true, accept: "application/pdf,text/plain,.txt,.md,image/png,image/jpeg,image/webp" });
+  const input = h("input", { type: "file", multiple: true, accept: "application/pdf,.docx,text/plain,.txt,.md,image/png,image/jpeg,image/webp" });
   const status = h("span", { class: "hint" });
   const btn = h("button", {
     class: "btn btn-primary",
@@ -174,8 +174,8 @@ export async function renderRules(root) {
   root.append(
     h("section", { class: "card" },
       h("h2", {}, "Правила организации"),
-      h("p", {}, "Загрузите ваши локальные акты: ПВТР, положения об оплате труда, премировании, адаптации, обучении, коллективный договор. ИИ один раз извлечёт из них ключевые правила, и наставник будет советовать в их рамках, ссылаясь на конкретный пункт."),
-      h("p", { class: "hint" }, "Документ отправляется в Anthropic для разбора; храниться в приложении будет только краткий список правил. Перед загрузкой уберите из документов персональные данные."),
+      h("p", {}, "Загрузите ваши локальные акты (PDF, Word, текст или фото страниц): ПВТР, положения об оплате труда, премировании, адаптации, обучении, коллективный договор. ИИ один раз извлечёт из них ключевые правила, и наставник будет советовать в их рамках, ссылаясь на конкретный пункт."),
+      h("p", { class: "hint" }, "Документ отправляется в выбранный ИИ-сервис для разбора; храниться в приложении будет только краткий список правил. Перед загрузкой уберите из документов персональные данные."),
       h("div", { class: "row" }, input, btn, status),
     ),
     list,

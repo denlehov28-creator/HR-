@@ -11,7 +11,7 @@ import { loadImage } from "./brand.js";
 import { imagePromptSystem, brandContext } from "./prompts.js";
 
 export const ENGINES = {
-  svg: "Векторная иллюстрация от Claude (в цветах бренда)",
+  svg: "Векторная иллюстрация в цветах бренда (лучше всего с Claude)",
   kandinsky: "Kandinsky — фото, 3D, акварель (нужен ключ FusionBrain)",
   gpt: "GPT Image — фото и сложные сцены (нужен ключ OpenAI)",
 };
@@ -59,9 +59,33 @@ export async function svgIllustration(task, brand, w, h) {
 
 const FB = "https://api-key.fusionbrain.ai/key/api/v1";
 
+async function kandinskyViaProxy(prompt, negative, W, H, onStatus) {
+  onStatus?.("Отправляю задание в Kandinsky…");
+  const { uuid } = await ai.proxy("kandinsky-run", { prompt, negative, width: W, height: H });
+  for (let i = 0; i < 40; i++) {
+    onStatus?.(`Kandinsky рисует… (${(i + 1) * 3} с)`);
+    await new Promise((r) => setTimeout(r, 3000));
+    const st = await ai.proxy("kandinsky-status", { uuid });
+    if (st.status === "DONE") {
+      if (st.result?.censored) throw new Error("Kandinsky отклонил запрос фильтром — переформулируйте.");
+      const b64 = st.result?.files?.[0];
+      if (!b64) throw new Error("Kandinsky не вернул изображение.");
+      const blob = await (await fetch(`data:image/png;base64,${b64}`)).blob();
+      return { img: await loadImage(URL.createObjectURL(blob)), blob, ext: "png" };
+    }
+    if (st.status === "FAIL") throw new Error(st.errorDescription || "Kandinsky не смог создать изображение.");
+  }
+  throw new Error("Kandinsky отвечает слишком долго — попробуйте позже.");
+}
+
 export async function kandinsky(prompt, negative, w, h, onStatus) {
   const s = await ai.settings();
-  if (!s.fbKey || !s.fbSecret) throw new Error("Добавьте API-ключ и секретный ключ FusionBrain в «Настройках».");
+  const kk = Math.min(1, 1024 / Math.max(w, h));
+  const W0 = Math.max(256, Math.round((w * kk) / 64) * 64);
+  const H0 = Math.max(256, Math.round((h * kk) / 64) * 64);
+  // Если настроен сервер-посредник — Kandinsky идёт через него (ключи на сервере)
+  if (s.proxyUrl && s.proxyPassword && !(s.fbKey && s.fbSecret)) return kandinskyViaProxy(prompt, negative, W0, H0, onStatus);
+  if (!s.fbKey || !s.fbSecret) throw new Error("Добавьте ключи FusionBrain в «Настройках» или настройте сервер-посредник.");
   const headers = { "X-Key": `Key ${s.fbKey}`, "X-Secret": `Secret ${s.fbSecret}` };
   // Kandinsky принимает размеры до 1024 и кратные 64
   const k = Math.min(1, 1024 / Math.max(w, h));

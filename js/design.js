@@ -686,7 +686,7 @@ export async function render(root) {
   }, "Промпт для фона в нейросети");
 
   // --- Иллюстрации ---
-  const engineSel = select("engine", Object.entries(ENGINES), "svg");
+  const engineSel = select("engine", Object.entries(ENGINES), (await ai.isClaude()) ? "svg" : "kandinsky");
   const illoBrief = h("textarea", { rows: 3, placeholder: "Что изобразить? Например: «команда празднует, конфетти и воздушные шары», «новый сотрудник на первом рабочем дне, светлый офис»" });
   const illoStatus = h("span", { class: "hint" });
   const gallery = h("div", { class: "row", style: { flexWrap: "wrap" } });

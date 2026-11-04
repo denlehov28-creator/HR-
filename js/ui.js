@@ -222,7 +222,7 @@ export function emptyKeyNotice() {
   return h(
     "div",
     { class: "notice" },
-    "Чтобы ИИ-функции заработали, нужен ключ Anthropic API. ",
+    "Чтобы ИИ-функции заработали, подключите нейросеть: Claude, GigaChat или YandexGPT. ",
     h("a", { href: "#/settings" }, "Открыть настройки"),
   );
 }

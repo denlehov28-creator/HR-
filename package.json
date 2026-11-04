@@ -13,7 +13,9 @@
     "docx": "9.5.1",
     "dompurify": "^3.4.17",
     "esbuild": "0.25.11",
+    "mammoth": "^1.13.0",
     "marked": "16.4.1",
+    "pdfjs-dist": "^6.4.299",
     "read-excel-file": "^9.3.12"
   }
 }

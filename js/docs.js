@@ -120,7 +120,7 @@ export async function render(root, params = {}) {
   const whatEl = h("textarea", { name: "what", rows: 3, required: true });
   const detailsEl = h("textarea", { name: "details", rows: 5 });
   const noteEl = h("div", { class: "notice", hidden: true });
-  const sampleInput = h("input", { type: "file", accept: "application/pdf,text/plain,.txt,.md,image/png,image/jpeg,image/webp" });
+  const sampleInput = h("input", { type: "file", accept: "application/pdf,.docx,text/plain,.txt,.md,image/png,image/jpeg,image/webp" });
 
   const syncType = () => {
     const t = DOC_TYPES[typeSel.value];

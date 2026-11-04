@@ -43,7 +43,7 @@ export async function render(root) {
     placeholder: "Что нужно? Например: «напиши Ивану, что отчёт переносится на пятницу» или вставьте текст для проверки",
     thinking: "Пишу…",
     saveKind: "assistant",
-    accept: "image/png,image/jpeg,image/webp,application/pdf,text/plain,.txt",
+    accept: "image/png,image/jpeg,image/webp,application/pdf,.docx,text/plain,.txt",
     fileHint: "Картинка или файл для проверки: ",
   });
   root.append(

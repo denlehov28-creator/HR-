@@ -6,7 +6,7 @@ import * as store from "./store.js";
 import { h, md, toast, copyText, plain, download } from "./ui.js";
 import { exportDocx } from "./export.js";
 
-export function chatBox({ storeKey, system, starters = [], placeholder, thinking = "Думаю…", saveKind = "mentor", accept = "application/pdf,image/png,image/jpeg,image/webp,text/plain,.txt,.md,.csv", fileHint = "Приложить файл: " }) {
+export function chatBox({ storeKey, system, starters = [], placeholder, thinking = "Думаю…", saveKind = "mentor", accept = "application/pdf,.docx,image/png,image/jpeg,image/webp,text/plain,.txt,.md,.csv", fileHint = "Приложить файл: " }) {
   let history = [];
   let busy = false;
   let controller = null;

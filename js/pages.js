@@ -63,7 +63,7 @@ export async function home(root) {
       h("h2", {}, "Важно знать"),
       h("ul", {},
         h("li", {}, h("b", {}, "Логотип не перерисовывается. "), "Он хранится как оригинальный файл и накладывается на макет без изменений — нейросеть его никогда не видит."),
-        h("li", {}, h("b", {}, "Персональные данные. "), "Не вставляйте в запросы паспортные данные, СНИЛС, сведения о здоровье и зарплаты конкретных людей — используйте [ФИО], [должность]. Тексты отправляются на серверы Anthropic для обработки (152-ФЗ)."),
+        h("li", {}, h("b", {}, "Персональные данные. "), "Не вставляйте в запросы паспортные данные, СНИЛС, сведения о здоровье и зарплаты конкретных людей — используйте [ФИО], [должность]. Тексты отправляются для обработки в выбранный ИИ-сервис: Anthropic (за рубежом) или GigaChat / YandexGPT (в России) — 152-ФЗ."),
         h("li", {}, h("b", {}, "Юридическая проверка. "), "ИИ помогает с формулировками, но статьи ТК РФ и сроки в юридически значимых документах сверяйте с КонсультантПлюс / Гарант или юристом."),
         h("li", {}, h("b", {}, "Данные хранятся только в этом браузере. "), "Делайте резервную копию в «Настройках», чтобы не потерять бренд-кит и материалы."),
       ),
@@ -161,9 +161,17 @@ export async function settingsPage(root) {
   const modelSel = select("model", ai.MODELS.map((m) => [m.id, m.label]), s.model);
   const effortSel = select("effort", [["low", "Быстро — для простых текстов"], ["medium", "Сбалансированно (рекомендуется)"], ["high", "Тщательно — дольше и дороже"]], s.effort);
   const status = h("span", { class: "hint" });
+  const providerSel = select("provider", Object.entries(ai.PROVIDERS), s.provider);
+  const proxyUrl = h("input", { type: "text", value: s.proxyUrl || "", placeholder: "https://functions.yandexcloud.net/…", autocomplete: "off" });
+  const proxyPass = h("input", { type: "password", value: s.proxyPassword || "", autocomplete: "off" });
+  const gigaSel = select("gigaModel", ai.GIGA_MODELS, s.gigaModel);
+  const yaSel = select("yandexModel", ai.YANDEX_MODELS, s.yandexModel);
 
   const save = async () => {
     await store.set("settings", {
+      provider: providerSel.value,
+      proxyUrl: proxyUrl.value.trim(), proxyPassword: proxyPass.value,
+      gigaModel: gigaSel.value, yandexModel: yaSel.value,
       apiKey: keyInput.value.trim(), model: modelSel.value, effort: effortSel.value,
       openaiKey: oaKey.value.trim(), openaiModel: oaModel.value.trim() || "gpt-image-1",
       fbKey: fbKey.value.trim(), fbSecret: fbSecret.value.trim(),
@@ -195,10 +203,42 @@ export async function settingsPage(root) {
     },
   });
 
+  let ruBox;
+  let ruStatus;
+  let claudeBox;
+  const check = async (el) => {
+    await save();
+    el.textContent = "Проверяю…";
+    el.className = "hint";
+    try {
+      await ai.ping();
+      el.textContent = "Подключение работает";
+      el.className = "ok";
+    } catch (e) {
+      el.textContent = e.message;
+      el.className = "warn";
+    }
+  };
   root.append(
     h("div", { class: "page-head" }, h("h1", {}, "Настройки")),
     h("section", { class: "card stack" },
-      h("h2", {}, "Подключение ИИ (Claude от Anthropic)"),
+      h("h2", {}, "Какой ИИ использовать"),
+      field("Нейросеть", providerSel, "Можно переключать в любой момент: все разделы работают с любой из трёх."),
+      (ruBox = h("div", { class: "stack" },
+        h("h3", {}, "Сервер-посредник (для GigaChat и YandexGPT)"),
+        h("p", { class: "hint" }, "Ключи GigaChat, YandexGPT и Kandinsky хранятся на вашем сервере в Яндекс Облаке, а не в браузере. Как его создать — в инструкции «Подключение российских нейросетей» (файл ", h("a", { href: "https://github.com/denlehov28-creator/HR-/blob/hr-assistant-app/server/yandex-function/ИНСТРУКЦИЯ.md", target: "_blank", rel: "noopener" }, "ИНСТРУКЦИЯ.md"), ")."),
+        h("div", { class: "grid-2" }, field("Адрес функции", proxyUrl), field("Пароль приложения (APP_PASSWORD)", proxyPass)),
+        h("div", { class: "grid-2" }, field("Модель GigaChat", gigaSel), field("Модель YandexGPT", yaSel)),
+        h("p", { class: "hint" }, "Российские модели получают файлы текстом: PDF и Word читаются прямо в браузере, а текст с картинок распознаётся сервисом Яндекса (Vision OCR). Ответы приходят целиком, без постепенного вывода."),
+        h("div", { class: "row" },
+          h("button", { class: "btn btn-primary", type: "button", onclick: async () => { await save(); toast("Сохранено"); } }, "Сохранить"),
+          h("button", { class: "btn", type: "button", onclick: () => check(ruStatus) }, "Проверить подключение"),
+          (ruStatus = h("span", { class: "hint" })),
+        ),
+      )),
+    ),
+    (claudeBox = h("section", { class: "card stack" },
+      h("h2", {}, "Подключение Claude (Anthropic)"),
       h("ol", { class: "hint-list" },
         h("li", {}, "Зарегистрируйтесь в консоли Anthropic: ", h("a", { href: "https://console.anthropic.com/", target: "_blank", rel: "noopener" }, "console.anthropic.com")),
         h("li", {}, "Пополните баланс (оплата за фактическое использование; документ или выступление обычно стоит несколько рублей)."),
@@ -220,13 +260,14 @@ export async function settingsPage(root) {
               status.textContent = "Подключение работает";
               status.className = "ok";
             } catch (e) {
-              status.textContent = `✗ ${e.message}`;
+              status.textContent = e.message;
+              status.className = "warn";
             }
           },
         }, "Проверить подключение"),
         status,
       ),
-    ),
+    )),
     h("section", { class: "card stack" },
       h("h2", {}, "Генераторы изображений (по желанию)"),
       h("p", { class: "hint" }, "Нужны для иллюстраций в дизайн-студии. Векторные иллюстрации от Claude работают без дополнительных ключей. В генераторы отправляется только текстовое описание картинки — логотип и данные бренд-кита не отправляются."),
@@ -273,4 +314,14 @@ export async function settingsPage(root) {
       }, "Удалить все данные"),
     ),
   );
+  const syncProvider = () => {
+    const ru = providerSel.value !== "claude";
+    ruBox.hidden = !ru;
+    claudeBox.hidden = ru;
+  };
+  providerSel.addEventListener("change", async () => {
+    syncProvider();
+    await save();
+  });
+  syncProvider();
 }
